@@ -273,12 +273,46 @@ section:last-child {
     gap: 10px;
 }
 
-.modify-section input {
+.modify-section input[type="text"] {
     flex: 1;
     padding: 12px;
     border: 2px solid #ddd;
     border-radius: 10px;
     font-size: 1em;
+}
+
+/* 이미지 업로드 영역 */
+.image-upload-area {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+#imagePreview, #modifyImagePreview {
+    position: relative;
+    display: inline-block;
+}
+
+#imagePreview img, #modifyImagePreview img {
+    border: 2px solid #667eea;
+}
+
+.btn-remove {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.btn-remove:hover {
+    background: #d32f2f;
 }
 
 /* 사용 가이드 */

@@ -37,7 +37,19 @@
                 placeholder="예: Python으로 피보나치 수열 만들어줘"
                 rows="4"
             ></textarea>
+
+            <!-- 이미지 첨부 영역 -->
+            <div class="image-upload-area">
+                <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                <button id="attachImageBtn" class="btn btn-secondary">📎 스크린샷/이미지 첨부</button>
+                <div id="imagePreview" style="display: none;">
+                    <img id="previewImg" style="max-width: 200px; max-height: 200px; margin-top: 10px; border-radius: 5px;">
+                    <button id="removeImageBtn" class="btn-remove">✕</button>
+                </div>
+            </div>
+
             <div class="input-controls">
+                <input type="text" id="projectName" placeholder="프로젝트 이름 (예: my-web-app)" style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px;">
                 <select id="language">
                     <option value="">자동 감지</option>
                     <option value="python">Python</option>
@@ -46,8 +58,9 @@
                     <option value="cpp">C++</option>
                     <option value="go">Go</option>
                     <option value="rust">Rust</option>
+                    <option value="html">HTML/CSS/JS</option>
                 </select>
-                <button id="generateBtn" class="btn btn-primary">🚀 코드 생성</button>
+                <button id="generateBtn" class="btn btn-primary">🚀 코드 생성 & GitHub 푸시</button>
             </div>
         </section>
 
@@ -57,7 +70,7 @@
                 <h2>📝 생성된 코드</h2>
                 <div class="result-controls">
                     <button id="copyBtn" class="btn btn-secondary">📋 복사</button>
-                    <button id="saveBtn" class="btn btn-success">💾 다운로드</button>
+                    <a id="githubLink" href="#" target="_blank" class="btn btn-success" style="display: none; text-decoration: none;">🔗 GitHub에서 보기</a>
                 </div>
             </div>
             <div class="code-container">
@@ -73,7 +86,13 @@
                     id="modifyPrompt"
                     placeholder="수정 요청을 입력하세요. 예: 재귀 대신 반복문으로 바꿔줘"
                 >
-                <button id="modifyBtn" class="btn btn-secondary">✏️ 수정</button>
+                <input type="file" id="modifyImageInput" accept="image/*" style="display: none;">
+                <button id="attachModifyImageBtn" class="btn btn-secondary">📎 스크린샷</button>
+                <button id="modifyBtn" class="btn btn-primary">✏️ 수정 & GitHub 푸시</button>
+            </div>
+            <div id="modifyImagePreview" style="display: none; margin-top: 10px;">
+                <img id="modifyPreviewImg" style="max-width: 200px; max-height: 200px; border-radius: 5px;">
+                <button id="removeModifyImageBtn" class="btn-remove">✕</button>
             </div>
         </section>
 

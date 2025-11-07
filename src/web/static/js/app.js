@@ -2,9 +2,13 @@
 let currentCode = '';
 let currentLanguage = '';
 let currentSessionId = null;
+let currentProjectName = '';
+let currentImageBase64 = null;
+let modifyImageBase64 = null;
 
 // DOM 요소
 const promptInput = document.getElementById('prompt');
+const projectNameInput = document.getElementById('projectName');
 const languageSelect = document.getElementById('language');
 const generateBtn = document.getElementById('generateBtn');
 const resultSection = document.getElementById('resultSection');
@@ -12,17 +16,76 @@ const codeOutput = document.getElementById('codeOutput');
 const explanation = document.getElementById('explanation');
 const explanationText = document.getElementById('explanationText');
 const copyBtn = document.getElementById('copyBtn');
-const saveBtn = document.getElementById('saveBtn');
+const githubLink = document.getElementById('githubLink');
 const modifyPrompt = document.getElementById('modifyPrompt');
 const modifyBtn = document.getElementById('modifyBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const toast = document.getElementById('toast');
 const status = document.getElementById('status');
 
+// 이미지 첨부 요소
+const imageInput = document.getElementById('imageInput');
+const attachImageBtn = document.getElementById('attachImageBtn');
+const imagePreview = document.getElementById('imagePreview');
+const previewImg = document.getElementById('previewImg');
+const removeImageBtn = document.getElementById('removeImageBtn');
+
+// 수정용 이미지 첨부 요소
+const modifyImageInput = document.getElementById('modifyImageInput');
+const attachModifyImageBtn = document.getElementById('attachModifyImageBtn');
+const modifyImagePreview = document.getElementById('modifyImagePreview');
+const modifyPreviewImg = document.getElementById('modifyPreviewImg');
+const removeModifyImageBtn = document.getElementById('removeModifyImageBtn');
+
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
+    setupImageHandlers();
 });
+
+// 이미지 핸들러 설정
+function setupImageHandlers() {
+    // 첨부 버튼 클릭
+    attachImageBtn.addEventListener('click', () => imageInput.click());
+    attachModifyImageBtn.addEventListener('click', () => modifyImageInput.click());
+
+    // 이미지 선택 시
+    imageInput.addEventListener('change', (e) => handleImageSelect(e, previewImg, imagePreview, (base64) => {
+        currentImageBase64 = base64;
+    }));
+
+    modifyImageInput.addEventListener('change', (e) => handleImageSelect(e, modifyPreviewImg, modifyImagePreview, (base64) => {
+        modifyImageBase64 = base64;
+    }));
+
+    // 제거 버튼
+    removeImageBtn.addEventListener('click', () => {
+        currentImageBase64 = null;
+        imagePreview.style.display = 'none';
+        imageInput.value = '';
+    });
+
+    removeModifyImageBtn.addEventListener('click', () => {
+        modifyImageBase64 = null;
+        modifyImagePreview.style.display = 'none';
+        modifyImageInput.value = '';
+    });
+}
+
+// 이미지 선택 처리
+function handleImageSelect(event, imgElement, previewElement, callback) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target.result;
+            imgElement.src = base64;
+            previewElement.style.display = 'block';
+            callback(base64);
+        };
+        reader.readAsDataURL(file);
+    }
+}
 
 // 헬스 체크
 async function checkHealth() {
@@ -61,6 +124,8 @@ async function checkHealth() {
 // 코드 생성
 generateBtn.addEventListener('click', async () => {
     const prompt = promptInput.value.trim();
+    const projectName = projectNameInput.value.trim() || 'generated-project';
+
     if (!prompt) {
         showToast('명령을 입력해주세요', 'error');
         return;
@@ -70,14 +135,23 @@ generateBtn.addEventListener('click', async () => {
     generateBtn.disabled = true;
 
     try {
+        const requestBody = {
+            prompt: prompt,
+            language: languageSelect.value || null,
+            context_id: currentSessionId,
+            project_name: projectName,
+            push_to_github: true
+        };
+
+        // 이미지가 있으면 추가
+        if (currentImageBase64) {
+            requestBody.image = currentImageBase64;
+        }
+
         const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                prompt: prompt,
-                language: languageSelect.value || null,
-                context_id: currentSessionId
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
@@ -86,6 +160,7 @@ generateBtn.addEventListener('click', async () => {
             currentCode = data.code;
             currentLanguage = data.language;
             currentSessionId = data.session_id;
+            currentProjectName = projectName;
 
             // 코드 표시
             codeOutput.textContent = data.code;
@@ -100,8 +175,21 @@ generateBtn.addEventListener('click', async () => {
                 explanation.style.display = 'none';
             }
 
+            // GitHub 링크 표시
+            if (data.github_url) {
+                githubLink.href = data.github_url;
+                githubLink.style.display = 'inline-block';
+                showToast(`코드 생성 완료! GitHub에 푸시되었습니다`, 'success');
+            } else {
+                showToast('코드 생성 완료!', 'success');
+            }
+
             resultSection.style.display = 'block';
-            showToast('코드 생성 완료!', 'success');
+
+            // 이미지 미리보기 초기화
+            currentImageBase64 = null;
+            imagePreview.style.display = 'none';
+            imageInput.value = '';
         } else {
             showToast(data.error || '코드 생성 실패', 'error');
         }
@@ -123,24 +211,6 @@ copyBtn.addEventListener('click', () => {
     });
 });
 
-// 다운로드
-saveBtn.addEventListener('click', () => {
-    const filename = prompt('파일명을 입력하세요:', `code.${currentLanguage}`);
-    if (!filename) return;
-
-    // Blob 생성 및 다운로드
-    const blob = new Blob([currentCode], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-
-    showToast('파일이 다운로드되었습니다!', 'success');
-});
 
 // 코드 수정
 modifyBtn.addEventListener('click', async () => {
@@ -154,13 +224,22 @@ modifyBtn.addEventListener('click', async () => {
     modifyBtn.disabled = true;
 
     try {
+        const requestBody = {
+            original_code: currentCode,
+            modification: modification,
+            project_name: currentProjectName,
+            push_to_github: true
+        };
+
+        // 수정용 이미지가 있으면 추가
+        if (modifyImageBase64) {
+            requestBody.image = modifyImageBase64;
+        }
+
         const response = await fetch('/api/modify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                original_code: currentCode,
-                modification: modification
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
@@ -178,8 +257,20 @@ modifyBtn.addEventListener('click', async () => {
                 explanation.style.display = 'block';
             }
 
+            // GitHub 링크 업데이트
+            if (data.github_url) {
+                githubLink.href = data.github_url;
+                showToast('코드 수정 완료! GitHub에 푸시되었습니다', 'success');
+            } else {
+                showToast('코드가 수정되었습니다', 'success');
+            }
+
             modifyPrompt.value = '';
-            showToast('코드가 수정되었습니다', 'success');
+
+            // 이미지 미리보기 초기화
+            modifyImageBase64 = null;
+            modifyImagePreview.style.display = 'none';
+            modifyImageInput.value = '';
         } else {
             showToast(data.error || '수정 실패', 'error');
         }

@@ -1,7 +1,10 @@
 """Gemini API 클라이언트"""
 import re
+import base64
 import google.generativeai as genai
 from typing import Optional, Dict
+from PIL import Image
+import io
 
 
 class GeminiClient:
@@ -33,7 +36,8 @@ class GeminiClient:
         self,
         prompt: str,
         language: Optional[str] = None,
-        context: Optional[str] = None
+        context: Optional[str] = None,
+        image_base64: Optional[str] = None
     ) -> Dict[str, str]:
         """
         코드 생성 (비동기)
