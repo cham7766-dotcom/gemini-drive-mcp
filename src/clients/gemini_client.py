@@ -60,9 +60,17 @@ class GeminiClient:
         try:
             full_prompt = self._build_prompt(prompt, language, context)
 
-            # Gemini는 기본적으로 동기 API이므로 동기 호출 사용
-            # 추후 비동기 래퍼 구현 가능
-            response = self.model.generate_content(full_prompt)
+            # 이미지가 있으면 멀티모달 입력으로 처리
+            if image_base64:
+                # Base64 디코딩
+                image_data = base64.b64decode(image_base64.split(',')[1] if ',' in image_base64 else image_base64)
+                image = Image.open(io.BytesIO(image_data))
+
+                # 이미지와 텍스트를 함께 전달
+                response = self.model.generate_content([full_prompt, image])
+            else:
+                # 텍스트만 전달
+                response = self.model.generate_content(full_prompt)
 
             code = self._extract_code(response.text)
             detected_language = language or self._detect_language(response.text)
@@ -93,11 +101,36 @@ class GeminiClient:
         context: Optional[str] = None
     ) -> str:
         """프롬프트 구성"""
-        system_prompt = """당신은 코드 생성 전문 AI입니다.
+        system_prompt = """당신은 실행 가능한 완전한 애플리케이션을 생성하는 AI입니다.
 
-규칙:
-1. 코드에 상세한 주석 포함
-2. 코드만 생성 (설명은 간단하게)
+**중요 규칙:**
+1. 사용자가 "웹", "앱", "프로그램", "사이트" 등을 요청하면 **반드시 Streamlit 또는 Flask 웹 애플리케이션**으로 만들어야 합니다
+2. requirements.txt에 필요한 모든 라이브러리를 명시하세요
+3. README.md에 실행 방법을 상세히 작성하세요
+4. 코드는 바로 실행 가능해야 합니다 (복사/붙여넣기 필요 없이)
+5. 한글 주석으로 설명을 달아주세요
+
+**웹앱 생성 시:**
+- Streamlit 사용 (간단한 경우)
+- Flask 사용 (복잡한 경우)
+- 파일 업로드, 입력 폼 등 UI 포함
+- 결과를 웹에서 바로 확인 가능하도록 구현
+
+**출력 형식:**
+```python
+# main.py 또는 app.py
+코드 내용
+```
+
+```
+# requirements.txt
+필요한 라이브러리
+```
+
+```markdown
+# README.md
+실행 방법
+```
 3. 코드 블록(```) 사용
 4. 실행 가능하고 완전한 코드 작성
 """
