@@ -58,26 +58,6 @@ def init_clients():
             app.config['GEMINI_CLIENT'] = None
             logger.warning("Gemini API 키가 없습니다")
 
-        # Drive 클라이언트 (선택사항 - OAuth 인증 필요)
-        # OAuth 인증이 완료되지 않았으면 건너뛰기
-        try:
-            creds_path = config.get_credentials_path()
-            if creds_path.exists():
-                # token.json이 있으면 Drive 클라이언트 초기화
-                token_path = config.get_project_root() / 'config' / 'token.json'
-                if token_path.exists():
-                    app.config['DRIVE_CLIENT'] = DriveClient(str(creds_path))
-                    logger.info("Drive 클라이언트 초기화 성공")
-                else:
-                    app.config['DRIVE_CLIENT'] = None
-                    logger.warning("Drive OAuth 인증이 필요합니다 (token.json 없음)")
-            else:
-                app.config['DRIVE_CLIENT'] = None
-                logger.warning("Drive credentials.json이 없습니다")
-        except Exception as e:
-            app.config['DRIVE_CLIENT'] = None
-            logger.warning(f"Drive 클라이언트 초기화 건너뜀: {e}")
-
         # Context Manager
         app.config['CONTEXT_MANAGER'] = ContextManager()
         logger.info("Context Manager 초기화 성공")
@@ -99,27 +79,19 @@ def index():
 def health_check():
     """헬스 체크 엔드포인트"""
     gemini_client = get_gemini_client()
-    drive_client = get_drive_client()
     context_manager = get_context_manager()
 
     return jsonify({
         'status': 'ok',
         'gemini_ready': gemini_client is not None,
-        'drive_ready': drive_client is not None,
         'context_ready': context_manager is not None
     })
 
 
 # API 라우트 등록
 from src.web.api.generate import generate_bp
-from src.web.api.drive import drive_bp
-from src.web.api.files import files_bp
-from src.web.api.oauth import oauth_bp
 
 app.register_blueprint(generate_bp, url_prefix='/api')
-app.register_blueprint(drive_bp, url_prefix='/api')
-app.register_blueprint(files_bp, url_prefix='/api')
-app.register_blueprint(oauth_bp, url_prefix='/api')
 
 
 if __name__ == '__main__':

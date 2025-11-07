@@ -15,63 +15,18 @@ const copyBtn = document.getElementById('copyBtn');
 const saveBtn = document.getElementById('saveBtn');
 const modifyPrompt = document.getElementById('modifyPrompt');
 const modifyBtn = document.getElementById('modifyBtn');
-const filesList = document.getElementById('filesList');
-const refreshBtn = document.getElementById('refreshBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const toast = document.getElementById('toast');
 const status = document.getElementById('status');
-const oauthBtn = document.getElementById('oauthBtn');
 
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
-    loadFiles();
-});
-
-// OAuth 인증 버튼
-oauthBtn.addEventListener('click', async () => {
-    showLoading(true);
-    try {
-        const response = await fetch('/api/oauth/authorize');
-        const data = await response.json();
-
-        if (data.success && data.auth_url) {
-            // 새 창으로 OAuth URL 열기
-            const authWindow = window.open(data.auth_url, 'OAuth 인증', 'width=600,height=700');
-
-            // 5초마다 상태 확인
-            const checkInterval = setInterval(async () => {
-                const statusResponse = await fetch('/api/oauth/status');
-                const statusData = await statusResponse.json();
-
-                if (statusData.authenticated) {
-                    clearInterval(checkInterval);
-                    if (authWindow) authWindow.close();
-                    showToast('Drive 인증 완료!', 'success');
-                    checkHealth();
-                    loadFiles();
-                }
-            }, 3000);
-
-            // 2분 후 타임아웃
-            setTimeout(() => {
-                clearInterval(checkInterval);
-            }, 120000);
-        } else {
-            showToast(data.error || 'OAuth 인증 시작 실패', 'error');
-        }
-    } catch (error) {
-        console.error('OAuth error:', error);
-        showToast('OAuth 인증 중 오류 발생', 'error');
-    } finally {
-        showLoading(false);
-    }
 });
 
 // 헬스 체크
 async function checkHealth() {
     const geminiStatusValue = document.getElementById('geminiStatusValue');
-    const driveStatusValue = document.getElementById('driveStatusValue');
 
     try {
         const response = await fetch('/api/health');
@@ -86,23 +41,12 @@ async function checkHealth() {
             geminiStatusValue.className = 'status-value not-ready';
         }
 
-        // Drive 상태
-        if (data.drive_ready) {
-            driveStatusValue.textContent = '✓ 연결됨';
-            driveStatusValue.className = 'status-value ready';
-            oauthBtn.style.display = 'none';
-        } else {
-            driveStatusValue.textContent = '✗ OAuth 필요';
-            driveStatusValue.className = 'status-value not-ready';
-            oauthBtn.style.display = 'inline-block';
-        }
-
         // 전체 상태
         if (data.status === 'ok' && data.gemini_ready) {
             status.textContent = '준비됨';
             status.style.background = '#4caf50';
         } else {
-            status.textContent = '일부 기능 제한';
+            status.textContent = 'Gemini API 설정 필요';
             status.style.background = '#ff9800';
         }
     } catch (error) {
@@ -110,8 +54,6 @@ async function checkHealth() {
         status.style.background = '#f44336';
         geminiStatusValue.textContent = '✗ 오류';
         geminiStatusValue.className = 'status-value error';
-        driveStatusValue.textContent = '✗ 오류';
-        driveStatusValue.className = 'status-value error';
         console.error('Health check failed:', error);
     }
 }
@@ -181,48 +123,23 @@ copyBtn.addEventListener('click', () => {
     });
 });
 
-// Drive에 저장
-saveBtn.addEventListener('click', async () => {
+// 다운로드
+saveBtn.addEventListener('click', () => {
     const filename = prompt('파일명을 입력하세요:', `code.${currentLanguage}`);
     if (!filename) return;
 
-    showLoading(true);
-    saveBtn.disabled = true;
+    // Blob 생성 및 다운로드
+    const blob = new Blob([currentCode], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 
-    try {
-        const response = await fetch('/api/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                code: currentCode,
-                filename: filename
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showToast('Drive에 저장되었습니다!', 'success');
-            loadFiles(); // 파일 목록 새로고침
-
-            // 파일 링크 열기
-            if (data.web_view_link) {
-                setTimeout(() => {
-                    if (confirm('Drive에서 파일을 열까요?')) {
-                        window.open(data.web_view_link, '_blank');
-                    }
-                }, 500);
-            }
-        } else {
-            showToast(data.error || '저장 실패', 'error');
-        }
-    } catch (error) {
-        console.error('Save error:', error);
-        showToast('저장 중 오류 발생', 'error');
-    } finally {
-        showLoading(false);
-        saveBtn.disabled = false;
-    }
+    showToast('파일이 다운로드되었습니다!', 'success');
 });
 
 // 코드 수정
@@ -275,62 +192,6 @@ modifyBtn.addEventListener('click', async () => {
     }
 });
 
-// 파일 목록 로드
-async function loadFiles() {
-    try {
-        const response = await fetch('/api/files');
-        const data = await response.json();
-
-        if (data.success && data.files && data.files.length > 0) {
-            filesList.innerHTML = data.files.map(file => `
-                <div class="file-item" onclick="loadFile('${file.id}')">
-                    <div class="file-name">${file.name}</div>
-                    <div class="file-date">${formatDate(file.created_time)}</div>
-                </div>
-            `).join('');
-        } else {
-            filesList.innerHTML = '<p class="empty-message">저장된 파일이 없습니다</p>';
-        }
-    } catch (error) {
-        console.error('Load files error:', error);
-        filesList.innerHTML = '<p class="empty-message">파일 목록을 불러올 수 없습니다</p>';
-    }
-}
-
-// 파일 불러오기
-async function loadFile(fileId) {
-    showLoading(true);
-
-    try {
-        const response = await fetch(`/api/file/${fileId}`);
-        const data = await response.json();
-
-        if (data.success) {
-            currentCode = data.content;
-            currentLanguage = data.language;
-
-            // 코드 표시
-            codeOutput.textContent = data.content;
-            codeOutput.className = `language-${data.language}`;
-            Prism.highlightElement(codeOutput);
-
-            explanation.style.display = 'none';
-            resultSection.style.display = 'block';
-
-            showToast(`${data.filename} 불러오기 완료`, 'success');
-        } else {
-            showToast(data.error || '파일 불러오기 실패', 'error');
-        }
-    } catch (error) {
-        console.error('Load file error:', error);
-        showToast('파일 불러오기 중 오류 발생', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// 파일 목록 새로고침
-refreshBtn.addEventListener('click', loadFiles);
 
 // 로딩 표시
 function showLoading(show) {
