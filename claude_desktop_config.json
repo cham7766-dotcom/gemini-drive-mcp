@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "gemini-drive": {
+      "command": "python",
+      "args": [
+        "c:\\Users\\chosun\\Desktop\\gemini-drive-mcp\\src\\mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "c:\\Users\\chosun\\Desktop\\gemini-drive-mcp"
+      }
+    }
+  }
+}
